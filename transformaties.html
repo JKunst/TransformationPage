@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Functietransformaties</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f1ec;
+  --card: #ffffff;
+  --text: #1a1714;
+  --muted: #7a736c;
+  --border: #e3dfd8;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 2rem 1.5rem 4rem;
+}
+
+#app { max-width: 860px; margin: 0 auto; }
+
+/* ─── Header ─── */
+header { margin-bottom: 2rem; }
+h1 {
+  font-family: 'Lora', serif;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+}
+h1 em { font-style: italic; color: #2563eb; }
+.subtitle { color: var(--muted); margin-top: 0.4rem; font-size: 0.95rem; }
+
+/* ─── Section label ─── */
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 0.65rem;
+}
+
+/* ─── Function selector ─── */
+.func-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 1.8rem;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+}
+.func-buttons { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+.func-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.45rem 0.9rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.func-btn:hover { border-color: #2563eb; color: #2563eb; }
+.func-btn.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+/* ─── Chain layout ─── */
+.chain { display: flex; flex-direction: column; gap: 0; }
+
+/* ─── Base card ─── */
+.base-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+}
+.base-info { flex: 1; min-width: 0; }
+.base-tag { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); display: block; margin-bottom: 0.35rem; }
+.base-formula { font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; color: var(--text); }
+
+/* ─── Chain arrow ─── */
+.chain-arrow {
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  user-select: none;
+}
+.chain-arrow::before {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background: var(--border);
+  left: calc(50% - 1px);
+}
+.chain-arrow::after {
+  content: '▾';
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 0 0.3rem;
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+}
+
+/* ─── Transform block ─── */
+.transform-block {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: stretch;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  transition: box-shadow 0.2s, border-color 0.15s, transform 0.15s, opacity 0.15s;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+}
+.transform-block.is-dragging {
+  box-shadow: 0 12px 32px rgba(0,0,0,0.14);
+  opacity: 0.88;
+  transform: scale(1.01);
+}
+.transform-block.drag-over { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.18); }
+.transform-block.drop-before::before {
+  content: '';
+  position: absolute;
+  top: -3px; left: 0; right: 0;
+  height: 3px;
+  background: #2563eb;
+  border-radius: 3px;
+}
+.transform-block.drop-after::after {
+  content: '';
+  position: absolute;
+  bottom: -3px; left: 0; right: 0;
+  height: 3px;
+  background: #2563eb;
+  border-radius: 3px;
+}
+
+/* Color bar */
+.block-bar { width: 5px; flex-shrink: 0; border-radius: 12px 0 0 12px; }
+
+/* Drag handle */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  padding: 0 0.7rem 0 0.6rem;
+  color: #ccc7be;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+.drag-handle:hover { color: var(--muted); }
+.drag-handle svg { display: block; }
+
+/* Block content */
+.block-content {
+  flex: 1;
+  padding: 1rem 0.5rem 1rem 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.block-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.block-number {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.type-select {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: inherit;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.type-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.type-select-wrap:hover { background: rgba(0,0,0,0.04); }
+.chevron { font-size: 0.6rem; color: var(--muted); }
+
+.block-transform-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Value control */
+.value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.param-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-width: 2rem;
+  flex-shrink: 0;
+}
+.value-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+.value-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2.5px solid currentColor;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  transition: transform 0.1s;
+}
+.value-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.value-slider::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2.5px solid currentColor;
+  cursor: pointer;
+}
+.value-number {
+  width: 58px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  padding: 0.28rem 0.4rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  text-align: center;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.value-number:focus { border-color: currentColor; }
+.reset-btn {
+  font-size: 0.7rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.reset-btn:hover { color: var(--text); border-color: var(--muted); }
+
+/* Formula display */
+.formula-box {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+.formula-sublabel {
+  font-size: 0.63rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 0.2rem;
+  font-family: 'DM Sans', sans-serif;
+}
+.formula-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+  word-break: break-all;
+}
+
+/* Canvas */
+.block-canvas-wrap {
+  padding: 0.85rem 1rem 0.85rem 0.4rem;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+canvas.graph {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+/* Drag tip */
+.drag-tip {
+  text-align: center;
+  font-size: 0.72rem;
+  color: #b5b0a8;
+  margin-top: 1rem;
+  user-select: none;
+}
+
+@media (max-width: 600px) {
+  .block-canvas-wrap { display: none; }
+  .transform-block { flex-wrap: wrap; }
+  canvas.graph { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Functie<em>transformaties</em></h1>
+    <p class="subtitle">Pas translaties en schaalfactoren toe op functies en bekijk het effect stap voor stap</p>
+  </header>
+
+  <div class="func-section">
+    <p class="section-label">Basisfunctie</p>
+    <div class="func-buttons" id="funcButtons"></div>
+  </div>
+
+  <div class="chain" id="chain">
+    <div class="base-card" id="baseCard">
+      <div class="base-info">
+        <span class="base-tag">Startpunt</span>
+        <div class="base-formula" id="baseFormula">f(x) = x²</div>
+      </div>
+      <div class="block-canvas-wrap">
+        <canvas class="graph" id="canvas-base" width="210" height="145"></canvas>
+      </div>
+    </div>
+    <div id="blocksContainer"></div>
+  </div>
+  <p class="drag-tip">⠿ Sleep de blokken om de volgorde van transformaties te wijzigen</p>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONSTANTS & CONFIG
+// ═══════════════════════════════════════════════════════
+
+const BASE_FUNCS = {
+  sqrt:  { label: '√x',   fn: x => Math.sqrt(x) },
+  x2:    { label: 'x²',   fn: x => x * x },
+  x3:    { label: 'x³',   fn: x => x * x * x },
+  exp08: { label: '0.8ˣ', fn: x => Math.pow(0.8, x) },
+  exp15: { label: '1.5ˣ', fn: x => Math.pow(1.5, x) },
+  inv:   { label: '1/x',  fn: x => 1 / x },
+};
+
+const TYPES = {
+  xShift: {
+    label: 'Translatie x-richting',
+    short: 'Translatie x',
+    hint: 'f(x − a)',
+    param: 'a',
+    color: '#2563eb',
+    min: -5, max: 5, step: 0.25, def: 0,
+    apply: (p, v) => ({ ...p, a: p.a + v }),
+  },
+  yShift: {
+    label: 'Translatie y-richting',
+    short: 'Translatie y',
+    hint: 'f(x) + b',
+    param: 'b',
+    color: '#059669',
+    min: -5, max: 5, step: 0.25, def: 0,
+    apply: (p, v) => ({ ...p, b: p.b + v }),
+  },
+  xScale: {
+    label: 'Verm. t.o.v. x-as',
+    short: 'Verm. x-as',
+    hint: 'c · f(x)',
+    param: 'c',
+    color: '#c2410c',
+    min: -4, max: 4, step: 0.25, def: 1,
+    apply: (p, v) => ({ ...p, d: p.d * v, b: p.b * v }),
+  },
+  yScale: {
+    label: 'Verm. t.o.v. y-as',
+    short: 'Verm. y-as',
+    hint: 'f(x / d)',
+    param: 'd',
+    color: '#7c3aed',
+    min: -4, max: 4, step: 0.25, def: 1,
+    apply: (p, v) => v === 0 ? p : { ...p, a: p.a * v, c: p.c * v },
+  },
+};
+
+const VIEW = { xMin: -6, xMax: 6, yMin: -5.5, yMax: 5.5 };
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+
+let selectedFunc = 'x2';
+let nextId = 5;
+let blocks = [
+  { id: 1, type: 'xShift', value: 0 },
+  { id: 2, type: 'yShift', value: 0 },
+  { id: 3, type: 'xScale', value: 1 },
+  { id: 4, type: 'yScale', value: 1 },
+];
+
+// ═══════════════════════════════════════════════════════
+// MATH
+// ═══════════════════════════════════════════════════════
+
+function computeChain() {
+  let p = { a: 0, b: 0, c: 1, d: 1 };
+  const chain = [{ ...p }];
+  for (const blk of blocks) {
+    const t = TYPES[blk.type];
+    const v = parseFloat(blk.value);
+    if (!isNaN(v)) p = t.apply(p, v);
+    chain.push({ ...p });
+  }
+  return chain;
+}
+
+function makeFunc(p) {
+  const fn = BASE_FUNCS[selectedFunc].fn;
+  return x => {
+    if (p.c === 0) return NaN;
+    return p.d * fn((x - p.a) / p.c) + p.b;
+  };
+}
+
+function fmt(n) {
+  n = Math.round(n * 10000) / 10000;
+  if (Math.abs(n - Math.round(n)) < 0.0001) return String(Math.round(n));
+  const s = parseFloat(n.toFixed(3)).toString();
+  return s;
+}
+
+function buildInner(a, c) {
+  const fa = fmt(Math.abs(a)), fc = fmt(c);
+  if (a === 0 && c === 1)  return 'x';
+  if (a === 0 && c === -1) return '-x';
+  if (a === 0)             return `x/${fc}`;
+  if (c === 1)             return a > 0 ? `x-${fa}` : `x+${fmt(-a)}`;
+  if (c === -1)            return a > 0 ? `-(x-${fa})` : `-(x+${fmt(-a)})`;
+  const sign = a > 0 ? '-' : '+';
+  return `(x${sign}${fa})/${fc}`;
+}
+
+function getFormulaStr(p) {
+  const a = Math.round(p.a * 10000) / 10000;
+  const b = Math.round(p.b * 10000) / 10000;
+  const c = Math.round(p.c * 10000) / 10000;
+  const d = Math.round(p.d * 10000) / 10000;
+
+  const inner = buildInner(a, c);
+  const isSimple = inner === 'x';
+
+  let fStr;
+  switch (selectedFunc) {
+    case 'sqrt':  fStr = isSimple ? '\u221ax'     : `\u221a(${inner})`; break;
+    case 'x2':    fStr = isSimple ? 'x\u00B2'     : `(${inner})\u00B2`; break;
+    case 'x3':    fStr = isSimple ? 'x\u00B3'     : `(${inner})\u00B3`; break;
+    case 'exp08': fStr = isSimple ? '0.8\u02E3'   : `0.8^(${inner})`; break;
+    case 'exp15': fStr = isSimple ? '1.5\u02E3'   : `1.5^(${inner})`; break;
+    case 'inv':   fStr = isSimple ? '1/x'         : `1/(${inner})`; break;
+    default:      fStr = `f(${inner})`;
+  }
+
+  let result;
+  if (d === 0)       result = '0';
+  else if (d === 1)  result = fStr;
+  else if (d === -1) result = `-${fStr}`;
+  else               result = `${fmt(d)}\u00B7${fStr}`;
+
+  if (b > 0)       result += `+${fmt(b)}`;
+  else if (b < 0)  result += `-${fmt(-b)}`;
+
+  return `f(x) = ${result}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAWING
+// ═══════════════════════════════════════════════════════
+
+function autoYRange(fns, xMin, xMax) {
+  const N = 500;
+  let yMin = Infinity, yMax = -Infinity;
+  for (const fn of fns) {
+    for (let i = 0; i <= N; i++) {
+      const x = xMin + (i / N) * (xMax - xMin);
+      const y = fn(x);
+      if (isFinite(y)) { yMin = Math.min(yMin, y); yMax = Math.max(yMax, y); }
+    }
+  }
+  if (!isFinite(yMin)) return { yMin: -6, yMax: 6 };
+
+  // Expand tiny ranges
+  const range = yMax - yMin;
+  if (range < 0.5) { yMin -= 2; yMax += 2; }
+
+  // Nice round step
+  const rawRange = yMax - yMin;
+  const step = niceStep(rawRange / 6);
+  yMin = Math.floor(yMin / step) * step;
+  yMax = Math.ceil(yMax / step) * step;
+
+  // Add one step padding
+  yMin -= step; yMax += step;
+
+  return { yMin, yMax, step };
+}
+
+function niceStep(rough) {
+  const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+  const frac = rough / pow;
+  if (frac < 1.5) return pow;
+  if (frac < 3)   return 2 * pow;
+  if (frac < 7)   return 5 * pow;
+  return 10 * pow;
+}
+
+function drawGraph(canvas, fn, prevFn, color) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const xMin = VIEW.xMin, xMax = VIEW.xMax;
+
+  const fns = prevFn ? [fn, prevFn] : [fn];
+  const { yMin, yMax, step } = autoYRange(fns, xMin, xMax);
+
+  const tx = x => (x - xMin) / (xMax - xMin) * W;
+  const ty = y => H - (y - yMin) / (yMax - yMin) * H;
+
+  // Background
+  ctx.fillStyle = '#f9f7f3';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#ebe8e1';
+  ctx.lineWidth = 1;
+  for (let x = Math.ceil(xMin); x <= xMax; x++) {
+    ctx.beginPath(); ctx.moveTo(tx(x), 0); ctx.lineTo(tx(x), H); ctx.stroke();
+  }
+  const yStep = step || 1;
+  for (let y = Math.ceil(yMin / yStep) * yStep; y <= yMax + 0.001; y += yStep) {
+    ctx.beginPath(); ctx.moveTo(0, ty(y)); ctx.lineTo(W, ty(y)); ctx.stroke();
+  }
+
+  // Axes (only if visible)
+  ctx.strokeStyle = '#9c9388';
+  ctx.lineWidth = 1.5;
+  if (0 >= yMin && 0 <= yMax) {
+    ctx.beginPath(); ctx.moveTo(0, ty(0)); ctx.lineTo(W, ty(0)); ctx.stroke();
+  }
+  if (0 >= xMin && 0 <= xMax) {
+    ctx.beginPath(); ctx.moveTo(tx(0), 0); ctx.lineTo(tx(0), H); ctx.stroke();
+  }
+
+  // Ticks
+  ctx.strokeStyle = '#9c9388';
+  ctx.lineWidth = 1;
+  const axisY = Math.max(yMin, Math.min(yMax, 0));
+  const axisX = Math.max(xMin, Math.min(xMax, 0));
+  for (let x = Math.ceil(xMin); x <= xMax; x++) {
+    if (x === 0) continue;
+    ctx.beginPath(); ctx.moveTo(tx(x), ty(axisY)-3); ctx.lineTo(tx(x), ty(axisY)+3); ctx.stroke();
+  }
+  for (let y = Math.ceil(yMin / yStep) * yStep; y <= yMax + 0.001; y += yStep) {
+    if (Math.abs(y) < yStep * 0.01) continue;
+    ctx.beginPath(); ctx.moveTo(tx(axisX)-3, ty(y)); ctx.lineTo(tx(axisX)+3, ty(y)); ctx.stroke();
+  }
+
+  // Previous function (dashed gray)
+  if (prevFn) plotFn(ctx, prevFn, tx, ty, yMin, yMax, '#c0bab2', 1.5, [5, 4], W);
+
+  // Current function
+  plotFn(ctx, fn, tx, ty, yMin, yMax, color, 2.5, [], W);
+}
+
+function plotFn(ctx, fn, tx, ty, yMin, yMax, color, lw, dash, W) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.setLineDash(dash);
+  ctx.beginPath();
+
+  const xMin = VIEW.xMin, xMax = VIEW.xMax;
+  const N = W * 4;
+  let penDown = false, prevY = null;
+  const yRange = yMax - yMin;
+
+  for (let i = 0; i <= N; i++) {
+    const x = xMin + (i / N) * (xMax - xMin);
+    const y = fn(x);
+
+    if (!isFinite(y)) { penDown = false; prevY = null; continue; }
+    if (prevY !== null && Math.abs(y - prevY) > yRange * 0.6) { penDown = false; }
+
+    const cx = tx(x);
+    const cy = ty(Math.max(yMin - yRange, Math.min(yMax + yRange, y)));
+
+    if (!penDown) { ctx.moveTo(cx, cy); penDown = true; }
+    else ctx.lineTo(cx, cy);
+    prevY = y;
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+
+function render() {
+  renderFuncButtons();
+  updateBase();
+  renderBlocks();
+  updateGraphs();
+}
+
+function renderFuncButtons() {
+  const c = document.getElementById('funcButtons');
+  c.innerHTML = '';
+  for (const [key, bf] of Object.entries(BASE_FUNCS)) {
+    const btn = document.createElement('button');
+    btn.className = 'func-btn' + (selectedFunc === key ? ' active' : '');
+    btn.textContent = bf.label;
+    btn.onclick = () => { selectedFunc = key; renderFuncButtons(); updateBase(); updateGraphs(); };
+    c.appendChild(btn);
+  }
+}
+
+function updateBase() {
+  document.getElementById('baseFormula').textContent = `f(x) = ${BASE_FUNCS[selectedFunc].label}`;
+}
+
+function renderBlocks() {
+  const container = document.getElementById('blocksContainer');
+  container.innerHTML = '';
+
+  blocks.forEach((blk, idx) => {
+    const t = TYPES[blk.type];
+
+    // Arrow
+    const arrow = document.createElement('div');
+    arrow.className = 'chain-arrow';
+    container.appendChild(arrow);
+
+    // Block wrapper
+    const blockEl = document.createElement('div');
+    blockEl.className = 'transform-block';
+    blockEl.dataset.index = idx;
+
+    // Build type options HTML
+    const optionsHtml = Object.entries(TYPES).map(([k, v]) =>
+      `<option value="${k}" ${k === blk.type ? 'selected' : ''}>${v.label}</option>`
+    ).join('');
+
+    blockEl.innerHTML = `
+      <div class="block-bar" style="background:${t.color}"></div>
+      <div class="drag-handle" title="Slepen om volgorde te wijzigen">
+        <svg width="12" height="20" viewBox="0 0 12 20" fill="none">
+          <circle cx="3" cy="4" r="1.5" fill="currentColor"/>
+          <circle cx="9" cy="4" r="1.5" fill="currentColor"/>
+          <circle cx="3" cy="10" r="1.5" fill="currentColor"/>
+          <circle cx="9" cy="10" r="1.5" fill="currentColor"/>
+          <circle cx="3" cy="16" r="1.5" fill="currentColor"/>
+          <circle cx="9" cy="16" r="1.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="block-content">
+        <div class="block-header">
+          <div class="block-number" style="background:${t.color}">${idx + 1}</div>
+          <div class="type-select-wrap" style="color:${t.color}">
+            <select class="type-select" style="color:${t.color}">${optionsHtml}</select>
+            <span class="chevron">▾</span>
+          </div>
+          <span class="block-transform-hint">${t.hint}</span>
+        </div>
+        <div class="value-row">
+          <span class="param-label">${t.param} =</span>
+          <input type="range" class="value-slider"
+            min="${t.min}" max="${t.max}" step="${t.step}"
+            value="${blk.value}"
+            style="color:${t.color}; accent-color:${t.color}">
+          <input type="number" class="value-number"
+            min="${t.min}" max="${t.max}" step="${t.step}"
+            value="${blk.value}"
+            style="color:${t.color}">
+          <button class="reset-btn" title="Herstel standaardwaarde">↺</button>
+        </div>
+        <div class="formula-box">
+          <span class="formula-sublabel">Resulterende formule</span>
+          <span class="formula-text" id="fml-${idx}">–</span>
+        </div>
+      </div>
+      <div class="block-canvas-wrap">
+        <canvas class="graph" id="canvas-${idx}" width="210" height="145"></canvas>
+      </div>
+    `;
+
+    container.appendChild(blockEl);
+
+    // Events: type change
+    const typeSelect = blockEl.querySelector('.type-select');
+    typeSelect.addEventListener('change', () => {
+      const newType = typeSelect.value;
+      blocks[idx].type = newType;
+      blocks[idx].value = TYPES[newType].def;
+      renderBlocks();
+      updateGraphs();
+    });
+
+    // Events: slider & number
+    const slider = blockEl.querySelector('.value-slider');
+    const numInput = blockEl.querySelector('.value-number');
+    const resetBtn = blockEl.querySelector('.reset-btn');
+
+    slider.addEventListener('input', () => {
+      const v = parseFloat(slider.value);
+      blocks[idx].value = v;
+      numInput.value = v;
+      updateGraphs();
+    });
+
+    numInput.addEventListener('change', () => {
+      let v = parseFloat(numInput.value);
+      if (isNaN(v)) return;
+      v = Math.max(t.min, Math.min(t.max, v));
+      blocks[idx].value = v;
+      slider.value = v;
+      numInput.value = v;
+      updateGraphs();
+    });
+
+    resetBtn.addEventListener('click', () => {
+      blocks[idx].value = t.def;
+      slider.value = t.def;
+      numInput.value = t.def;
+      updateGraphs();
+    });
+
+    // Drag & drop
+    setupDnD(blockEl, idx);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// UPDATE GRAPHS & FORMULAS
+// ═══════════════════════════════════════════════════════
+
+function updateGraphs() {
+  const chain = computeChain();
+
+  // Base canvas
+  const baseCanvas = document.getElementById('canvas-base');
+  if (baseCanvas) drawGraph(baseCanvas, makeFunc(chain[0]), null, '#64748b');
+
+  // Each block
+  blocks.forEach((_, i) => {
+    const canvas = document.getElementById(`canvas-${i}`);
+    const fmlEl = document.getElementById(`fml-${i}`);
+    if (canvas) {
+      const fn = makeFunc(chain[i + 1]);
+      const prevFn = makeFunc(chain[i]);
+      drawGraph(canvas, fn, prevFn, TYPES[blocks[i].type].color);
+    }
+    if (fmlEl) fmlEl.textContent = getFormulaStr(chain[i + 1]);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════════════════
+
+let dragIdx = null;
+
+function setupDnD(el, idx) {
+  const handle = el.querySelector('.drag-handle');
+
+  // Only enable draggable while handle is held
+  handle.addEventListener('mousedown', () => { el.draggable = true; });
+  handle.addEventListener('touchstart', () => { el.draggable = true; }, { passive: true });
+
+  el.addEventListener('dragstart', e => {
+    dragIdx = idx;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+    requestAnimationFrame(() => el.classList.add('is-dragging'));
+  });
+
+  el.addEventListener('dragend', () => {
+    el.draggable = false;
+    el.classList.remove('is-dragging');
+    clearDropIndicators();
+    dragIdx = null;
+  });
+
+  el.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragIdx === null || dragIdx === idx) return;
+    clearDropIndicators();
+    const rect = el.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    if (e.clientY < mid) {
+      el.classList.add('drop-before');
+    } else {
+      el.classList.add('drop-after');
+    }
+  });
+
+  el.addEventListener('dragleave', e => {
+    if (!el.contains(e.relatedTarget)) {
+      el.classList.remove('drop-before', 'drop-after');
+    }
+  });
+
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    clearDropIndicators();
+    if (dragIdx === null || dragIdx === idx) return;
+
+    const rect = el.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    let targetIdx = idx;
+    if (e.clientY >= mid) targetIdx = idx + 1;
+
+    const moved = blocks.splice(dragIdx, 1)[0];
+    const insertAt = dragIdx < targetIdx ? targetIdx - 1 : targetIdx;
+    blocks.splice(insertAt, 0, moved);
+
+    renderBlocks();
+    updateGraphs();
+    dragIdx = null;
+  });
+}
+
+function clearDropIndicators() {
+  document.querySelectorAll('.transform-block').forEach(b => {
+    b.classList.remove('drop-before', 'drop-after', 'drag-over');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+
+render();
+</script>
+</body>
+</html>
